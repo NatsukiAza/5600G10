@@ -3,7 +3,8 @@ USE COM025600;
 CREATE TABLE Administracion(
 	 ID_Administracion INT PRIMARY KEY,
 	 Nombre VARCHAR(100) NOT NULL,
-	Correo_Electronico VARCHAR(100) NOT NULL
+     Direccion VARCHAR(100) NOT NULL,
+     Correo_Electronico VARCHAR(100) NOT NULL
 )
 
 CREATE TABLE Consorcio(
@@ -115,3 +116,4 @@ CREATE TABLE Pago (
         REFERENCES Detalle_Expensa(ID_Detalle)
         ON DELETE CASCADE
 )
+
