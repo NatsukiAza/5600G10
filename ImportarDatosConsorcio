@@ -30,7 +30,7 @@ BEGIN
         'BULK INSERT #DatosImportadosTXT
         FROM ''' + @RutaArchivoNovedades + '''
         WITH (
-            FIELDTERMINATOR = ''' + CHAR(9) + ''',
+            FIELDTERMINATOR = ''\t'',
             ROWTERMINATOR = ''\n'',
             FIRSTROW = 2
         )';
