@@ -1,4 +1,8 @@
-----ADMINISTRACION----
+/*ADMINISTRACION*/
+IF OBJECT_ID('dbo.ImportarDatosAdministracion', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.ImportarDatosAdministracion;
+GO
+	
 CREATE OR ALTER PROCEDURE sp_ImportarDatosAdministracion
 AS 
 BEGIN
@@ -36,7 +40,7 @@ EXEC sp_ImportarDatosAdministracion
 GO
 
 
--------------CONSORCIO---------
+/*CONSORCIO8*/
 IF OBJECT_ID('dbo.ImportarDatosConsorcio', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ImportarDatosConsorcio;
 GO
@@ -138,7 +142,7 @@ EXEC ImportarDatosConsorcio @RutaArchivoNovedades = @Ruta
 GO
 
 
------------GASTO----------
+/*GASTO*/
 IF OBJECT_ID('dbo.sp_ImportarDatosGasto', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ImportarDatosGasto;
 GO
