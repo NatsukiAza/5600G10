@@ -1,0 +1,85 @@
+IF OBJECT_ID('dbo.Importar_Unidades_Funcionales', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.Importar_Unidades_Funcionales;
+GO
+
+CREATE PROCEDURE Importar_Unidades_Funcionales
+    @RutaArchivo VARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    CREATE TABLE #DatosImportadosTXT(
+        Nombre_Consorcio VARCHAR(100),
+        nroUnidadFuncional INT,
+        Piso VARCHAR(10),
+        Departamento VARCHAR(10),
+        Coeficiente VARCHAR(10),
+        m2_unidad_funcional DECIMAL(10,2),
+        Bauleras VARCHAR(10),
+        Cochera VARCHAR(10),
+        m2_baulera DECIMAL(10,2),
+        m2_cochera DECIMAL(10,2)
+    );
+
+    DECLARE @ComandoSQL NVARCHAR(MAX);
+    SET @ComandoSQL = 
+        'BULK INSERT #DatosImportadosTXT
+         FROM ''' + @RutaArchivo + '''
+         WITH (
+             FIELDTERMINATOR = ''\t'',
+             ROWTERMINATOR = ''\n'',
+             FIRSTROW = 2
+         )';
+    EXEC sp_executesql @ComandoSQL;
+
+    ;WITH DatosLimpios AS (
+        SELECT
+            U.Nombre_Consorcio,
+            U.nroUnidadFuncional,
+            C.ID_Consorcio,
+            U.Piso,
+            U.Departamento,
+            CAST(REPLACE(U.Coeficiente, ',', '.') AS DECIMAL(10,2)) AS Porcentaje_Prorrateo,
+            CAST(ISNULL(U.m2_unidad_funcional, 0) + ISNULL(U.m2_baulera, 0) + ISNULL(U.m2_cochera, 0) AS DECIMAL(10,2)) AS Superficie_m2,
+            CASE WHEN U.Cochera = 'SI' THEN 'SI' ELSE 'NO' END AS Tiene_Cochera,
+            CASE WHEN U.Bauleras = 'SI' THEN 'SI' ELSE 'NO' END AS Tiene_Bahulera
+        FROM #DatosImportadosTXT AS U
+        INNER JOIN Consorcio AS C
+            ON C.Nombre = TRIM(U.Nombre_Consorcio)
+        WHERE
+            NULLIF(TRIM(U.Nombre_Consorcio), '') IS NOT NULL
+            AND U.nroUnidadFuncional IS NOT NULL
+            AND NULLIF(TRIM(U.Piso), '') IS NOT NULL
+            AND NULLIF(TRIM(U.Departamento), '') IS NOT NULL
+            AND NULLIF(U.Coeficiente, '') IS NOT NULL
+    )
+
+    INSERT INTO Unidad_Funcional (
+        ID_Consorcio,
+        nroUnidadFuncional,
+        Piso,
+        Departamento,
+        Superficie_m2,
+        Porcentaje_Prorrateo,
+        Tiene_Cochera,
+        Tiene_Bahulera
+    )
+    SELECT
+        ID_Consorcio,
+        nroUnidadFuncional,
+        Piso,
+        Departamento,
+        Superficie_m2,
+        Porcentaje_Prorrateo,
+        Tiene_Cochera,
+        Tiene_Bahulera
+    FROM DatosLimpios;
+
+    DROP TABLE #DatosImportadosTXT;
+END;
+GO
+
+EXEC Importar_Unidades_Funcionales 
+    @RutaArchivo = 'C:\consorcios\UF por consorcio.txt';
+
+SELECT * FROM Unidad_Funcional
