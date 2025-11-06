@@ -16,12 +16,12 @@ BEGIN
         nroUnidadFuncional VARCHAR(10),
         Piso VARCHAR(10),
         departamento VARCHAR(10),
-        coeficiente VARCHAR(10), -- Mantenemos VARCHAR para manejar la coma decimal
-        m2_unidad_funcional DECIMAL(10,2), -- Estos serán nuestros sumandos
+        coeficiente VARCHAR(10), 
+        m2_unidad_funcional DECIMAL(10,2), 
         bauleras VARCHAR(10),
         cochera VARCHAR(10),
-        m2_baulera DECIMAL(10,2), -- Estos serán nuestros sumandos
-        m2_cochera DECIMAL(10,2)  -- Estos serán nuestros sumandos
+        m2_baulera DECIMAL(10,2), 
+        m2_cochera DECIMAL(10,2)  
     );
     --
     DECLARE @ComandoSQL NVARCHAR(MAX);
