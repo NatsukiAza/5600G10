@@ -214,3 +214,77 @@ BEGIN
                     )
                 ELSE 0
             END AS Monto_Final
+			FROM DatosOrigen AS D
+
+        CROSS APPLY (VALUES 
+            ('BANCARIOS', D.BANCARIOS),
+            ('LIMPIEZA', D.LIMPIEZA),
+            ('ADMINISTRACION', D.ADMINISTRACION),
+            ('SEGUROS', D.SEGUROS),
+            ('GASTOS GENERALES', D.GASTOS_GENERALES),
+            ('SERVICIOS PUBLICOS-Agua', D.AGUA),
+            ('SERVICIOS PUBLICOS-Luz', D.LUZ)
+        ) AS V(Tipo_Gasto, Monto_Texto)
+        
+        WHERE TRY_CAST(
+                STUFF(
+                    REPLACE(REPLACE(V.Monto_Texto, '.', ''), ',', ''), 
+                    LEN(REPLACE(REPLACE(V.Monto_Texto, '.', ''), ',', '')) - 1, 
+                    0, 
+                    '.'
+                ) AS DECIMAL(12,2)
+            ) IS NOT NULL 
+    )
+    , FuenteFinal AS (
+        SELECT
+            R.Tipo_Gasto,
+            R.Monto_Final,
+            R.Monto_Original,
+            E.Fecha_Generada AS Fecha_Generacion_Gasto,
+
+            E.ID_Expensa
+
+       FROM RubrosDespivotados AS R
+        INNER JOIN dbo.Consorcio AS C 
+            ON C.Nombre = TRIM(R.NombreConsorcio)
+        INNER JOIN dbo.Expensa AS E 
+            ON E.ID_Consorcio = C.ID_Consorcio 
+
+            AND MONTH(E.Fecha_Generada) = R.Mes_Gasto_Anterior + 1
+            AND YEAR(E.Fecha_Generada) = 2025
+    )
+    
+    MERGE dbo.Gasto AS Destino
+    USING (
+        SELECT 
+            ROW_NUMBER() OVER (ORDER BY ID_Expensa, Tipo_Gasto) + ISNULL((SELECT MAX(ID_Gasto) FROM dbo.Gasto), 0) AS ID_Gasto,
+            *
+        FROM FuenteFinal
+    ) AS Fuente
+    ON (
+        Destino.ID_Expensa = Fuente.ID_Expensa AND Destino.Tipo_Gasto = Fuente.Tipo_Gasto
+    )
+    
+    WHEN MATCHED THEN
+        UPDATE SET
+            Destino.Monto = Fuente.Monto_Final,
+            Destino.Fecha = Fuente.Fecha_Generacion_Gasto
+    
+    WHEN NOT MATCHED BY TARGET THEN
+        INSERT (ID_Gasto, ID_Expensa, Tipo_Gasto, Fecha, Monto, Detalle)
+        VALUES (
+            Fuente.ID_Gasto,
+            Fuente.ID_Expensa,
+            Fuente.Tipo_Gasto,
+            Fuente.Fecha_Generacion_Gasto,
+            Fuente.Monto_Final,
+            'Gasto correspondiente al rubro ' + Fuente.Tipo_Gasto + ' - Valor original: ' + Fuente.Monto_Original
+        );
+    
+    IF OBJECT_ID('tempdb..#JsonTemp') IS NOT NULL DROP TABLE #JsonTemp;
+    
+END
+GO
+
+DECLARE @Ruta VARCHAR(500) = 'C:\consorcios\Servicios.Servicios.json'
+EXEC dbo.sp_ImportarDatosGasto @RutaArchivoJSON = @Ruta
