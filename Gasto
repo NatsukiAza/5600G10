@@ -1,1 +1,72 @@
+IF OBJECT_ID('dbo.sp_ImportarDatosGasto', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.sp_ImportarDatosGasto;
+GO
 
+CREATE OR ALTER PROCEDURE dbo.sp_ImportarDatosGasto
+    @RutaArchivoJSON VARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    CREATE TABLE #JsonTemp (JsonData NVARCHAR(MAX));
+    DECLARE @ComandoSQL NVARCHAR(MAX);
+    DECLARE @JsonData NVARCHAR(MAX);
+    
+    SET @ComandoSQL = 
+        N'INSERT INTO #JsonTemp (JsonData)
+          SELECT BulkColumn FROM OPENROWSET (BULK N''' + @RutaArchivoJSON + N''', SINGLE_CLOB) AS JsonFile;';
+    
+    EXEC sp_executesql @ComandoSQL;
+    SELECT @JsonData = JsonData FROM #JsonTemp;
+
+    -- 2. CTE para Parsear, Limpiar y Despivotar los Gastos
+    WITH DatosOrigen AS (
+        SELECT
+            T.[Nombre del consorcio] AS NombreConsorcio,
+            T.Mes,
+            T.BANCARIOS AS BANCARIOS,
+            T.LIMPIEZA AS LIMPIEZA,
+            T.ADMINISTRACION AS ADMINISTRACION,
+            T.SEGUROS AS SEGUROS,
+            T.[GASTOS GENERALES] AS GASTOS_GENERALES,
+            T.[SERVICIOS PUBLICOS-Agua] AS AGUA,
+            T.[SERVICIOS PUBLICOS-Luz] AS LUZ
+        FROM OPENJSON(@JsonData)
+            WITH (
+                [Nombre del consorcio] NVARCHAR(100), 
+                Mes NVARCHAR(20), 
+                BANCARIOS NVARCHAR(20),
+                LIMPIEZA NVARCHAR(20), 
+                ADMINISTRACION NVARCHAR(20), 
+                SEGUROS NVARCHAR(20),
+                [GASTOS GENERALES] NVARCHAR(20), 
+                [SERVICIOS PUBLICOS-Agua] NVARCHAR(20), 
+                [SERVICIOS PUBLICOS-Luz] NVARCHAR(20)
+            ) AS T
+    )
+    , RubrosDespivotados AS (
+        SELECT
+            D.NombreConsorcio,
+            -- Obtener el número de mes del gasto (Mes Anterior)
+            CASE 
+                 WHEN TRIM(D.Mes) = 'abril' THEN 4
+                 WHEN TRIM(D.Mes) = 'mayo' THEN 5
+                 WHEN TRIM(D.Mes) = 'junio' THEN 6
+                 ELSE NULL END AS Mes_Gasto_Anterior,
+            
+            -- Despivotar los rubros y convertirlos a DECIMAL
+            V.Tipo_Gasto,
+            V.Monto_Texto AS Monto_Original,
+            
+            CASE 
+                WHEN LEN(V.Monto_Texto) >= 2 THEN
+                    TRY_CAST(
+                        STUFF(
+                            REPLACE(REPLACE(V.Monto_Texto, '.', ''), ',', ''), 
+                            LEN(REPLACE(REPLACE(V.Monto_Texto, '.', ''), ',', '')) - 1, 
+                            0, 
+                            '.'
+                        ) AS DECIMAL(12,2)
+                    )
+                ELSE 0
+            END AS Monto_Final
