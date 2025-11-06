@@ -314,6 +314,64 @@ GO
 /*IMPORTACION A LA TABLA EXPENSA*/
 
 /*IMPORTACION A LA TABLA DETALLE_EXPENSA*/
+CREATE OR ALTER PROCEDURE dbo.sp_GenerarDetalleExpensaPorProrrateo
+AS
+BEGIN
+    DECLARE @MaxID_Detalle INT;
+    SELECT @MaxID_Detalle = ISNULL(MAX(ID_Detalle),0) FROM Detalle_Expensa;
+    --
+    WITH ExpensasNoLiquidadas AS (
+        SELECT  
+            ID_Expensa,
+            ID_Consorcio,
+            Expensas_Ord,
+            Expensas_Extraord
+        FROM    
+            Expensa
+        WHERE   
+            (Expensa.Estado IS NULL)
+    ),
+    DetallesExpensasInsertar AS (
+        SELECT
+            ENL.ID_Expensa,
+            U_Fun.ID_UF,
+            ENL.Expensas_Ord,
+            ENL.Expensas_Extraord,
+            U_Fun.Porcentaje_Prorrateo
+        FROM 
+            ExpensasNoLiquidadas AS ENL
+            INNER JOIN Unidad_Funcional AS U_Fun 
+                ON ENL.ID_Consorcio = U_Fun.ID_Consorcio
+        WHERE NOT EXISTS (
+            SELECT 1 FROM Detalle_Expensa AS D_Exp
+            WHERE D_Exp.ID_Expensa = ENL.ID_Expensa AND D_Exp.ID_UF = U_Fun.ID_UF
+        )
+    )
+   --
+    INSERT INTO Detalle_Expensa(
+        ID_Detalle,
+        ID_Expensa,
+        ID_UF,
+        Pagos_Recibidos,
+        Deuda,
+        Interes_Mora,
+        Detalle_Ordinarias,
+        Detalle_Extraord,
+        Total
+    )
+    SELECT
+        @MaxID_Detalle + ROW_NUMBER() OVER (ORDER BY D_E_Insrt.ID_Expensa, D_E_Insrt.ID_UF) AS ID_Detalle,
+        D_E_Insrt.ID_Expensa,
+        D_E_Insrt.ID_UF,
+        0.00 AS Pagos_Recibidos,
+        0.00 AS Deuda,
+        0.00 AS Interes_Mora,
+        ROUND(D_E_Insrt.Expensas_Ord * D_E_Insrt.Porcentaje_Prorrateo / 100, 2) AS Detalle_Ordinarias,
+        ROUND(D_E_Insrt.Expensas_Extraord * D_E_Insrt.Porcentaje_Prorrateo / 100, 2) AS Detalle_Extraord,
+        ROUND( (D_E_Insrt.Expensas_Ord + D_E_Insrt.Expensas_Extraord) * D_E_Insrt.Porcentaje_Prorrateo / 100, 2) AS Total
+    FROM DetallesExpensasInsertar AS D_E_Insrt
+END
+GO
 
 /*IMPORTACION A LA TABLA PAGO*/
 
