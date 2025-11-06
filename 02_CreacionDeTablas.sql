@@ -16,8 +16,9 @@ CREATE TABLE Consorcio(
 )
 
 CREATE TABLE Unidad_Funcional(
-	ID_UF INT PRIMARY KEY,
+	ID_UF INT PRIMARY KEY IDENTITY(1,1),
 	ID_Consorcio INT FOREIGN KEY references Consorcio(ID_Consorcio) ON DELETE CASCADE,
+    nroUnidadFuncional INT NOT NULL,
 	Piso CHAR(2) NOT NULL, check (Piso = 'PB' or (TRY_CAST(Piso as INT) between 0 and 20)),
 	Departamento CHAR(1) NOT NULL,
 	Superficie_m2 DECIMAL(10,2) NOT NULL,check (Superficie_m2>10),
@@ -116,4 +117,5 @@ CREATE TABLE Pago (
         REFERENCES Detalle_Expensa(ID_Detalle)
         ON DELETE CASCADE
 )
+
 
