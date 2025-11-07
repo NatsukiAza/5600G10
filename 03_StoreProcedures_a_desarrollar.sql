@@ -330,8 +330,6 @@ BEGIN
             Expensas_Extraord
         FROM    
             Expensa
-        WHERE   
-            (Expensa.Estado IS NULL or Expensa.Estado = 'Enviado')
     ),
     DetallesExpensasInsertar AS (
         SELECT
