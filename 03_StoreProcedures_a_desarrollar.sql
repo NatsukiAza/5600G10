@@ -104,10 +104,10 @@ BEGIN
     MERGE dbo.Administracion AS Destino
     USING (
         VALUES 
-            (1, 'Altos de Saint Just Administración', 'contacto@altosstjust.com'),
-            (2, 'Consorcios del Sur', 'info@consorciosdelsur.com'),
-            (3, 'Administradora Central', 'administracion@central.com') 
-    ) AS Fuente(ID_Administracion,Nombre,Correo_Electronico)
+            (1, 'Altos de Saint Just Administración', 'Calle A 123', 'contacto@altosstjust.com'),
+            (2, 'Consorcios del Sur', 'Avenida Sur 456', 'info@consorciosdelsur.com'),
+            (3, 'Administradora Central', 'Carrera Central 789', 'administracion@central.com') 
+    ) AS Fuente(ID_Administracion, Nombre, Direccion, Correo_Electronico)
     ON (
         Destino.ID_Administracion = Fuente.ID_Administracion 
     )
@@ -115,13 +115,15 @@ BEGIN
     WHEN MATCHED THEN
         UPDATE SET
             Destino.Nombre = Fuente.Nombre,
+            Destino.Direccion = Fuente.Direccion,
             Destino.Correo_Electronico = Fuente.Correo_Electronico
     --
     WHEN NOT MATCHED BY TARGET THEN
-        INSERT (ID_Administracion,Nombre,Correo_Electronico)
+        INSERT (ID_Administracion,Nombre,Direccion,Correo_Electronico)
         VALUES (
         Fuente.ID_Administracion, 
         Fuente.Nombre, 
+        Fuente.Direccion,
         Fuente.Correo_Electronico);
     --
 END
