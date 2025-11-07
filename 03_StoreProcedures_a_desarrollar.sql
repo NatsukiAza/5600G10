@@ -312,7 +312,108 @@ END;
 GO
 
 /*IMPORTACION A LA TABLA RELACION_UF_PERSONA*/
+IF OBJECT_ID('dbo.ImportarRelacionUFPersonas', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.ImportarRelacionUFPersonas;
+GO
 
+CREATE PROCEDURE ImportarRelacionUFPersonas
+    @RutaArchivoPersonas VARCHAR(500),
+    @RutaArchivoRelacion VARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Tabla temporal para personas
+    CREATE TABLE #DatosPersonasCSV(
+        Nombre VARCHAR(100),
+        Apellido VARCHAR(100),
+        Documento VARCHAR(100),
+        Email_Personal VARCHAR(100),
+        Telefono VARCHAR(50),
+        CBU_CVU VARCHAR(50),
+        Flag_Inquilino VARCHAR(10)
+    );
+
+    -- Tabla temporal para relaciones UF
+    CREATE TABLE #DatosRelacionCSV(
+        CBU_CVU VARCHAR(50),
+        Nombre_Consorcio VARCHAR(100),
+        NroUnidadFuncional INT,
+        Piso VARCHAR(10),
+        Departamento VARCHAR(10)
+    );
+
+    -- Bulk insert personas
+    DECLARE @ComandoSQL NVARCHAR(MAX);
+    SET @ComandoSQL = 
+        'BULK INSERT #DatosPersonasCSV
+         FROM ''' + @RutaArchivoPersonas + '''
+         WITH (
+             FIELDTERMINATOR = '';'',
+             ROWTERMINATOR = ''\n'',
+             FIRSTROW = 2
+         )';
+    EXEC sp_executesql @ComandoSQL;
+
+    -- Bulk insert relaciones
+    SET @ComandoSQL = 
+        'BULK INSERT #DatosRelacionCSV
+         FROM ''' + @RutaArchivoRelacion + '''
+         WITH (
+             FIELDTERMINATOR = ''|'',
+             ROWTERMINATOR = ''\n'',
+             FIRSTROW = 2
+         )';
+    EXEC sp_executesql @ComandoSQL;
+
+    -- Preparar datos finales para insertar
+    ;WITH FuenteRelacion AS (
+        SELECT
+            ROW_NUMBER() OVER (ORDER BY P.CBU_CVU) AS ID_Relacion,
+            UF.ID_UF,
+            1 AS Tipo_Documento,                 -- constante
+            TRY_CAST(P.Documento AS INT) AS Numero_documento,
+            P.CBU_CVU AS CBU_CVU,
+            CASE 
+                WHEN TRIM(P.Flag_Inquilino) = '0' THEN 'PROPIETARIO'
+                WHEN TRIM(P.Flag_Inquilino) = '1' THEN 'INQUILINO'
+            END AS Rol,
+            CAST(GETDATE() AS DATE) AS Fecha_Inicio,
+            CAST(DATEADD(DAY, 30, GETDATE()) AS DATE) AS Fecha_Fin
+        FROM #DatosRelacionCSV AS R
+        INNER JOIN Unidad_Funcional AS UF
+            ON UF.NroUnidadFuncional = R.NroUnidadFuncional
+        INNER JOIN #DatosPersonasCSV AS P
+            ON P.CBU_CVU = R.CBU_CVU
+        WHERE
+            NULLIF(R.CBU_CVU,'') IS NOT NULL
+            AND NULLIF(P.CBU_CVU,'') IS NOT NULL
+            AND NULLIF(P.Flag_Inquilino,'') IS NOT NULL
+    )
+
+    INSERT INTO Relacion_UF_Persona
+        (ID_Relacion,ID_UF, Tipo_Documento, Num_Documento, Fecha_Inicio, Fecha_Fin, Rol, CBU_CVU_Pago)
+    SELECT
+        ID_Relacion, ID_UF, Tipo_Documento, Numero_documento, Fecha_Inicio, Fecha_Fin, Rol, CBU_CVU
+    FROM FuenteRelacion;
+
+    -- Limpieza
+    IF OBJECT_ID('tempdb..#DatosPersonasCSV') IS NOT NULL
+        DROP TABLE #DatosPersonasCSV;
+
+    IF OBJECT_ID('tempdb..#DatosRelacionCSV') IS NOT NULL
+        DROP TABLE #DatosRelacionCSV;
+END
+GO
+
+-- Ejemplo de ejecución
+DECLARE @RutaPersonas VARCHAR(500) = 'C:\temp\Inquilino-propietarios-datos.csv';
+DECLARE @RutaRelacion VARCHAR(500) = 'C:\consorcios\Inquilino-propietarios-UF.csv';
+
+EXEC ImportarRelacionUFPersonas 
+    @RutaArchivoPersonas = @RutaPersonas,
+    @RutaArchivoRelacion = @RutaRelacion;
+select * from Relacion_UF_Persona
 /*IMPORTACION A LA TABLA EXPENSA*/
 
 /*IMPORTACION A LA TABLA DETALLE_EXPENSA*/
