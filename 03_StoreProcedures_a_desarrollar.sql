@@ -364,7 +364,7 @@ BEGIN
         D_E_Insrt.ID_Expensa,
         D_E_Insrt.ID_UF,
         0.00 AS Pagos_Recibidos,
-        0.00 AS Deuda,
+        ROUND( (D_E_Insrt.Expensas_Ord + D_E_Insrt.Expensas_Extraord) * D_E_Insrt.Porcentaje_Prorrateo / 100, 2) AS Deuda,
         0.00 AS Interes_Mora,
         ROUND(D_E_Insrt.Expensas_Ord * D_E_Insrt.Porcentaje_Prorrateo / 100, 2) AS Detalle_Ordinarias,
         ROUND(D_E_Insrt.Expensas_Extraord * D_E_Insrt.Porcentaje_Prorrateo / 100, 2) AS Detalle_Extraord,
