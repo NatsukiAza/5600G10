@@ -1,5 +1,5 @@
 /*ACA PODREMOS DESARROLLAR LOS SP Y POSTERIORMENTE DIVIDIRLOS EN QUERYS Y/O IOR VOLCANDO LOS QUE YA SIRVEN EN ESTE ARCHIVO*/
-USE COM025600
+USE COM5600G10
 /*IMPORTACION A LA TABLA PERSONA*/
 CREATE OR ALTER PROCEDURE ImportarInquilinos_Propietarios
 	@RutaArchivoNovedades VARCHAR(500)
@@ -530,7 +530,6 @@ BEGIN
                  WHEN TRIM(D.Mes) = 'junio' THEN 6
                  ELSE NULL END AS Mes_Gasto_Anterior,
             
-            -- Despivotar los rubros y convertirlos a DECIMAL
             V.Tipo_Gasto,
             V.Monto_Texto AS Monto_Original,
             
@@ -558,7 +557,6 @@ BEGIN
             ('SERVICIOS PUBLICOS-Luz', D.LUZ)
         ) AS V(Tipo_Gasto, Monto_Texto)
         
-        -- Filtramos montos nulos o cero después de la conversión
         WHERE TRY_CAST(
                 STUFF(
                     REPLACE(REPLACE(V.Monto_Texto, '.', ''), ',', ''), 
@@ -587,7 +585,6 @@ BEGIN
             AND YEAR(E.Fecha_Generada) = 2025
     )
     
-    -- MERGE: Insertar o actualizar
     MERGE dbo.Gasto AS Destino
     USING (
         SELECT 
@@ -615,7 +612,6 @@ BEGIN
             'Gasto correspondiente al rubro ' + Fuente.Tipo_Gasto + ' - Valor original: ' + Fuente.Monto_Original
         );
     
-    -- Limpieza
     IF OBJECT_ID('tempdb..#JsonTemp') IS NOT NULL DROP TABLE #JsonTemp;
     
 END
