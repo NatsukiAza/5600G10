@@ -1,4 +1,4 @@
-# BDD-Aplicada
+# BDD-Aplicada - Grupo 10
 Repositorio para los trabajos de la materia BDD Aplicada/Comisión 5600
 
 Integrantes
