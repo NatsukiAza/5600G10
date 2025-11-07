@@ -6,5 +6,5 @@ Integrantes
 - Muñoz Gimenez, Facundo Ezequiel (FacuMunozEG)
 - Brizzolara Ojeda, Adriel Maximo de Jesús (Adr1z)
 - Aranibar Machado, Rocio  (RocioAranibar)
-- Vega, Kevin ()
+- Vega, Kevin (kevinvega14)
 - Tupia Caypo, Catherine (Catherinetupia)
