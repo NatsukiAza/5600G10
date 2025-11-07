@@ -329,7 +329,7 @@ BEGIN
         FROM    
             Expensa
         WHERE   
-            (Expensa.Estado IS NULL)
+            (Expensa.Estado IS NULL or Expensa.Estado = 'Enviado')
     ),
     DetallesExpensasInsertar AS (
         SELECT
