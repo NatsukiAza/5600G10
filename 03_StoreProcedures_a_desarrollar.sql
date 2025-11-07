@@ -474,7 +474,7 @@ BEGIN
 END
 GO
 
-/*IMPORTACION A LA TABLA PAGO*/
+/*IMPORTACION A LA TABLA GASTO*/
 IF OBJECT_ID('dbo.sp_ImportarDatosGasto', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ImportarDatosGasto;
 GO
@@ -546,4 +546,4 @@ BEGIN
                     )
                 ELSE 0
             END AS Monto_Final
-/*IMPORTACION A LA TABLA GASTOS*/
+/*IMPORTACION A LA TABLA PAGOS*/
