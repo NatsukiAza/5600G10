@@ -61,7 +61,7 @@ CREATE TABLE Expensa (
     Expensas_Ord DECIMAL(12,2) CHECK (Expensas_Ord >= 0),
     Expensas_Extraord DECIMAL(12,2) CHECK (Expensas_Extraord >= 0),
     Total_Expensa AS (Expensas_Ord + Expensas_Extraord),
-    Estado VARCHAR(15) CHECK (Estado IN ('GENERADA','ENVIADA','PAGADA','VENCIDA')),
+    Estado VARCHAR(15) CHECK (Estado IN ('PENDIENTE','GENERADA','CERRADA','ANULADA')),
 
     CONSTRAINT FK_Expensa_Consorcio FOREIGN KEY (ID_Consorcio)
         REFERENCES Consorcio(ID_Consorcio)
@@ -117,5 +117,3 @@ CREATE TABLE Pago (
         REFERENCES Detalle_Expensa(ID_Detalle)
         ON DELETE CASCADE
 )
-
-
