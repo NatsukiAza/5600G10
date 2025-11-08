@@ -33,6 +33,7 @@ CREATE TABLE Persona(
 	Nombre VARCHAR(100) NOT NULL,
 	Apellido VARCHAR(100) NOT NULL,
 	Correo_Electronico VARCHAR(100) NOT NULL,
+	CBU_CVU CHAR(22) NULL,
 	Telefono INT NOT NULL CHECK(Telefono between 1100000000 and 1200000000),
 	PRIMARY KEY(Tipo_Documento,Numero_documento)
 )
@@ -110,10 +111,10 @@ CREATE TABLE Pago (
     Cuenta_Origen VARCHAR(30) NOT NULL,
     DatoImportado DECIMAL(12,2) CHECK (DatoImportado >= 0),
     Estado VARCHAR(15) CHECK (Estado IN ('PENDIENTE','CONFIRMADO','ANULADO')),
-    Detalle NVARCHAR(255),
     Tipo_Pago VARCHAR(15) CHECK (Tipo_Pago IN ('ORDINARIO','EXTRAORDINARIO')),
 
     CONSTRAINT FK_Pago_Detalle FOREIGN KEY (ID_Detalle)
         REFERENCES Detalle_Expensa(ID_Detalle)
         ON DELETE CASCADE
 )
+
