@@ -397,7 +397,107 @@ GO
 
 	
 /*IMPORTACION A LA TABLA EXPENSA*/
+CREATE OR ALTER PROCEDURE dbo.sp_ImportarDatosExpensa
+    @RutaArchivoJSON VARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
 
+    CREATE TABLE #JsonTemp (JsonData NVARCHAR(MAX));
+
+    DECLARE @ComandoSQL NVARCHAR(MAX);
+    SET @ComandoSQL = 
+        N'INSERT INTO #JsonTemp (JsonData)
+          SELECT BulkColumn FROM OPENROWSET (BULK N''' + @RutaArchivoJSON + N''', SINGLE_CLOB) AS JsonFile;';
+    EXEC sp_executesql @ComandoSQL;
+
+    DECLARE @JsonData NVARCHAR(MAX);
+    SELECT @JsonData = JsonData FROM #JsonTemp;
+
+    WITH FuenteJSON AS (
+        SELECT
+            T.[Nombre del consorcio],
+            LTRIM(RTRIM(T.Mes)) AS Mes,
+            REPLACE(REPLACE(T.BANCARIOS, '.', ''), ',', '.') AS BANCARIOS_CL,
+            REPLACE(REPLACE(T.LIMPIEZA, '.', ''), ',', '.') AS LIMPIEZA_CL,
+            REPLACE(REPLACE(T.ADMINISTRACION, '.', ''), ',', '.') AS ADMINISTRACION_CL,
+            REPLACE(REPLACE(T.SEGUROS, '.', ''), ',', '.') AS SEGUROS_CL,
+            REPLACE(REPLACE(T.[GASTOS GENERALES], '.', ''), ',', '.') AS GASTOS_GENERALES_CL,
+            REPLACE(REPLACE(T.[SERVICIOS PUBLICOS-Agua], '.', ''), ',', '.') AS AGUA_CL,
+            REPLACE(REPLACE(T.[SERVICIOS PUBLICOS-Luz], '.', ''), ',', '.') AS LUZ_CL
+        FROM OPENJSON(@JsonData)
+        WITH (
+            [Nombre del consorcio] NVARCHAR(100) '$."Nombre del consorcio"',
+            Mes NVARCHAR(20),
+            BANCARIOS NVARCHAR(20),
+            LIMPIEZA NVARCHAR(20),
+            ADMINISTRACION NVARCHAR(20),
+            SEGUROS NVARCHAR(20),
+            [GASTOS GENERALES] NVARCHAR(20),
+            [SERVICIOS PUBLICOS-Agua] NVARCHAR(20),
+            [SERVICIOS PUBLICOS-Luz] NVARCHAR(20)
+        ) AS T
+        WHERE T.[Nombre del consorcio] IS NOT NULL
+    )
+    , DatosBase AS (
+        SELECT
+            C.ID_Consorcio,
+            CASE WHEN TRIM(F.Mes) LIKE 'abril%' THEN 4
+                 WHEN TRIM(F.Mes) LIKE 'mayo%' THEN 5
+                 WHEN TRIM(F.Mes) LIKE 'junio%' THEN 6
+                 ELSE NULL END AS Mes_Gasto_Anterior,
+
+            -- Expensas Ordinarias
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.BANCARIOS_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) +
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.LIMPIEZA_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) +
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.ADMINISTRACION_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) +
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.SEGUROS_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) +
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.AGUA_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) +
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.LUZ_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) 
+            AS Expensas_Ord_Calculadas,
+
+            -- Expensas Extraordinarias
+            ISNULL(TRY_CAST(REPLACE(REPLACE(F.GASTOS_GENERALES_CL, '.', ''), ',', '.') AS DECIMAL(18,2)),0) 
+            AS Expensas_Extraord_Calculadas
+        FROM FuenteJSON AS F
+        INNER JOIN dbo.Consorcio AS C ON C.Nombre = TRIM(F.[Nombre del consorcio])
+    )
+    , FechasCalculadas AS (
+        SELECT
+            D.*,
+            dbo.FN_ObtenerNthDiaHabil(2025, D.Mes_Gasto_Anterior + 1, 5) AS Fecha_Generada_Base
+        FROM DatosBase AS D
+        WHERE D.Mes_Gasto_Anterior IS NOT NULL
+    )
+    MERGE dbo.Expensa AS Destino
+    USING (
+        SELECT 
+            ROW_NUMBER() OVER (ORDER BY ID_Consorcio, Fecha_Generada_Base) + ISNULL((SELECT MAX(ID_Expensa) FROM dbo.Expensa), 0) AS ID_Expensa,
+            ID_Consorcio,
+            Fecha_Generada_Base AS Fecha_Generada,
+            DATEADD(DAY, 10, Fecha_Generada_Base) AS Fecha_Venc1,
+            DATEADD(DAY, 20, Fecha_Generada_Base) AS Fecha_Venc2,
+            Expensas_Ord_Calculadas,
+            Expensas_Extraord_Calculadas,
+            'PAGADA' AS Estado
+        FROM FechasCalculadas
+        WHERE Fecha_Generada_Base IS NOT NULL
+    ) AS Fuente
+    ON (Destino.ID_Consorcio = Fuente.ID_Consorcio AND Destino.Fecha_Generada = Fuente.Fecha_Generada)
+    WHEN MATCHED THEN
+        UPDATE SET 
+            Destino.Fecha_Venc1 = Fuente.Fecha_Venc1,
+            Destino.Fecha_Venc2 = Fuente.Fecha_Venc2,
+            Destino.Expensas_Ord = Fuente.Expensas_Ord_Calculadas,
+            Destino.Expensas_Extraord = Fuente.Expensas_Extraord_Calculadas,
+            Destino.Estado = Fuente.Estado
+    WHEN NOT MATCHED BY TARGET THEN
+        INSERT (ID_Expensa, ID_Consorcio, Fecha_Generada, Fecha_Venc1, Fecha_Venc2, Expensas_Ord, Expensas_Extraord, Estado)
+        VALUES (Fuente.ID_Expensa, Fuente.ID_Consorcio, Fuente.Fecha_Generada, Fuente.Fecha_Venc1, Fuente.Fecha_Venc2, Fuente.Expensas_Ord_Calculadas, Fuente.Expensas_Extraord_Calculadas, Fuente.Estado);
+
+    IF OBJECT_ID('tempdb..#JsonTemp') IS NOT NULL DROP TABLE #JsonTemp;
+END
+GO
 	
 /*IMPORTACION A LA TABLA DETALLE_EXPENSA*/
 CREATE OR ALTER PROCEDURE dbo.sp_GenerarDetalleExpensaPorProrrateo
