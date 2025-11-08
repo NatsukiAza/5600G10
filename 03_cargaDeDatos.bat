@@ -31,7 +31,7 @@ if /I "!AuthType!"=="S" (
 )
 
 echo.
-echo ❌ Opcion invalida. Intente de nuevo.
+echo  Opcion invalida. Intente de nuevo.
 goto AuthLoop
 
 :AuthDone
@@ -56,14 +56,15 @@ sqlcmd -S "!ServerName!" -d COM5600G10 !SqlAuthParam! -i "03_StoreProcedures_a_d
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ❌ ERROR: Falló la ejecución del script SQL.
-    echo Revise la ruta del archivo o la conexión al servidor.
+    echo ERROR: Falló la ejecución del script SQL.
+    echo Revise la ruta del archivo o la conexion al servidor.
 ) else (
     echo.
-    echo ✅ Ejecución completada correctamente.
+    echo Ejecucion completada correctamente.
 )
 
 echo.
 pause
 endlocal
+
 
