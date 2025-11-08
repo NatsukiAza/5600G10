@@ -619,87 +619,89 @@ GO
 
 DECLARE @Ruta VARCHAR(500) = 'C:\consorcios\Servicios.Servicios.json'
 EXEC dbo.sp_ImportarDatosGasto @RutaArchivoJSON = @Ruta
+	
 /*IMPORTACION A LA TABLA PAGOS*/
-
-IF OBJECT_ID('dbo.ImportarPagosConsorcio', 'P') IS NOT NULL
-    DROP PROCEDURE dbo.ImportarPagosConsorcio;
-GO
-
 CREATE OR ALTER PROCEDURE ImportarPagosConsorcio
     @RutaArchivo VARCHAR(500)
 AS
 BEGIN
     SET NOCOUNT ON;
-
+    --
     IF OBJECT_ID('tempdb..#PagosCSV') IS NOT NULL DROP TABLE #PagosCSV;
-
+    --
     CREATE TABLE #PagosCSV (
         ID_Pago_CSV VARCHAR(20),
         Fecha_Pago VARCHAR(20),
         CBU_CVU_Pago VARCHAR(30),
         Valor VARCHAR(30)
     );
-
+    --
     DECLARE @ComandoSQL NVARCHAR(MAX);
     SET @ComandoSQL = 
         'BULK INSERT #PagosCSV
          FROM ''' + @RutaArchivo + '''
          WITH (
-             FIELDTERMINATOR = '','',
-             ROWTERMINATOR = ''\n'',
-             FIRSTROW = 2,
-             TABLOCK
+              FIELDTERMINATOR = '','',
+              ROWTERMINATOR = ''\n'',
+              FIRSTROW = 2
          )';
+    --
     EXEC sp_executesql @ComandoSQL;
-
-    IF OBJECT_ID('tempdb..#PagosLimpios') IS NOT NULL DROP TABLE #PagosLimpios;
-
-    SELECT
-        ID_Pago_CSV,
-        TRY_CONVERT(DATE, Fecha_Pago, 103) AS Fecha_Pago,
-        TRIM(CBU_CVU_Pago) AS CBU_CVU_Pago,
-        TRY_CONVERT(DECIMAL(12,2), REPLACE(REPLACE(Valor,'$',''),'.','')) / 100 AS Valor
-    INTO #PagosLimpios
-    FROM #PagosCSV
-    WHERE TRY_CONVERT(DATE, Fecha_Pago, 103) IS NOT NULL
-      AND TRY_CONVERT(DECIMAL(12,2), REPLACE(REPLACE(Valor,'$',''),'.','')) IS NOT NULL;
-
-    ;WITH UltimoDetallePorCBU AS (
-        SELECT 
-            R.CBU_CVU_Pago,
-            MAX(D.ID_Detalle) AS ID_Detalle
-        FROM Relacion_UF_Persona R
-        JOIN Detalle_Expensa D
-            ON D.ID_UF = R.ID_UF
-        GROUP BY R.CBU_CVU_Pago
+    --
+    WITH PagosLimpios AS(
+        SELECT
+            ID_Pago_CSV,
+            TRY_CONVERT(DATE, Fecha_Pago, 103) AS Fecha_Pago, 
+            TRIM(CBU_CVU_Pago) AS CBU_CVU_Pago,
+            TRY_CONVERT(DECIMAL(12,2), REPLACE(REPLACE(Valor, '$', ''), '.', '')) / 100 AS Valor
+        FROM 
+            #PagosCSV
+        WHERE 
+            TRY_CONVERT(DATE, Fecha_Pago, 103) IS NOT NULL
+            AND TRY_CONVERT(DECIMAL(12,2), REPLACE(REPLACE(Valor, '$', ''), '.', '')) IS NOT NULL
     ),
-    PagosConMaxDetalle AS (
-        SELECT 
+    PagosRankeados AS (
+        SELECT
             P.ID_Pago_CSV AS ID_Pago,
+            D.ID_Detalle,
             P.Fecha_Pago,
             P.CBU_CVU_Pago,
             P.Valor,
-            U.ID_Detalle
-        FROM #PagosLimpios P
-        JOIN UltimoDetallePorCBU U
-            ON P.CBU_CVU_Pago = U.CBU_CVU_Pago
+            
+            ROW_NUMBER() OVER (
+                PARTITION BY P.ID_Pago_CSV 
+                ORDER BY D.ID_Detalle DESC 
+            ) AS FilaUnica
+        FROM PagosLimpios P
+        INNER JOIN Relacion_UF_Persona R 
+            ON R.CBU_CVU_Pago = P.CBU_CVU_Pago
+        INNER JOIN Detalle_Expensa D    
+            ON D.ID_UF = R.ID_UF
     )
+    --
     MERGE INTO Pago AS T
-    USING PagosConMaxDetalle AS S
+    USING (
+        SELECT
+            ID_Pago,
+            ID_Detalle,
+            Fecha_Pago,
+            CBU_CVU_Pago,
+            Valor
+        FROM PagosRankeados
+        WHERE FilaUnica = 1
+    ) AS S
+    --
     ON T.ID_Pago = S.ID_Pago
+    --
     WHEN MATCHED THEN
         UPDATE SET 
             T.Fecha_Pago = S.Fecha_Pago,
             T.Cuenta_Origen = S.CBU_CVU_Pago,
             T.DatoImportado = S.Valor,
             T.Estado = 'PENDIENTE'
+            
     WHEN NOT MATCHED THEN
         INSERT (ID_Pago, ID_Detalle, Fecha_Pago, Cuenta_Origen, DatoImportado, Estado, Detalle, Tipo_Pago)
         VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, 'PENDIENTE', NULL, 'ORDINARIO');
 END;
 GO
-
-DECLARE @Ruta VARCHAR(500) = 'C:\consorcios\pagos_consorcios.csv';
-EXEC ImportarPagosConsorcio @RutaArchivo = @Ruta;
-
-select * from Pago
