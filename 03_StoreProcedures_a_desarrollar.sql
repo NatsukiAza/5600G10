@@ -687,3 +687,34 @@ BEGIN
         VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, 'PENDIENTE', NULL, 'ORDINARIO');
 END;
 GO
+
+DECLARE @RutaPersonas VARCHAR(500) = '$(RutaPersonas)';
+DECLARE @RutaConsorcios VARCHAR(500) = '$(RutaConsorcios)';
+DECLARE @RutaRelacion VARCHAR(500) = '$(RutaRelacion)';
+DECLARE @RutaJSON VARCHAR(500) = '$(RutaJSON)';
+DECLARE @RutaPagos VARCHAR(500) = '$(RutaPagos)';
+
+-- 1. Importar Administración
+EXEC sp_ImportarDatosAdministracion;
+
+-- 2. Importar Personas
+EXEC ImportarInquilinos_Propietarios @RutaArchivoNovedades = @RutaPersonas;
+
+-- 3. Importar Consorcios y UF
+EXEC ImportarDatosConsorcio @RutaArchivoNovedades = @RutaConsorcios;
+EXEC Importar_Unidades_Funcionales @RutaArchivo = @RutaConsorcios;
+
+-- 4. Importar Relaciones
+EXEC ImportarRelacionUFPersonas 
+    @RutaArchivoPersonas = @RutaPersonas,
+    @RutaArchivoRelacion = @RutaRelacion;
+
+-- 5. Importar Expensas y Gastos
+EXEC dbo.sp_ImportarDatosExpensa @RutaArchivoJSON = @RutaJSON;
+EXEC dbo.sp_ImportarDatosGasto @RutaArchivoJSON = @RutaJSON;
+
+-- 6. Generar detalles de expensas
+EXEC sp_GenerarDetalleExpensaPorProrrateo;
+
+-- 7. Importar Pagos
+EXEC ImportarPagosConsorcio @RutaArchivo = @RutaPagos;
