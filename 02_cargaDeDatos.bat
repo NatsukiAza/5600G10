@@ -22,7 +22,7 @@ echo ---------------------------------------------
 echo Ejecutando script SQL en SQL Server...
 echo ---------------------------------------------
 
-sqlcmd -S . -d COM025600 -E -i "script_importaciones.sql" ^
+sqlcmd -S . -d COM025600 -E -i "02_StoreProcedures_a_desarrollar.sql" ^
     -v RutaPersonas="%RutaPersonas%" ^
        RutaConsorcios="%RutaConsorcios%" ^
        RutaRelacion="%RutaRelacion%" ^
@@ -40,3 +40,4 @@ echo ---------------------------------------------
 pause
 
 endlocal
+
