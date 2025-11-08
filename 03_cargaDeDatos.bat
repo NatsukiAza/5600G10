@@ -47,7 +47,7 @@ REM === Escapar las barras invertidas en la ruta base para T-SQL ===
 set "RutaBaseSQL=!RutaBase:\=\\!"
 
 REM === Ejecutar el script SQL con las variables y autenticación dinamica ===
-sqlcmd -S "!ServerName!" -d COM5600G10 !SqlAuthParam! -i "02_StoreProcedures_a_desarrollar.sql" ^
+sqlcmd -S "!ServerName!" -d COM5600G10 !SqlAuthParam! -i "03_StoreProcedures_a_desarrollar.sql" ^
      -v RutaPersonas="!RutaBaseSQL!\\Inquilino-propietarios-datos.csv" ^
         RutaConsorcios="!RutaBaseSQL!\\UF por consorcio.txt" ^
         RutaRelacion="!RutaBaseSQL!\\Inquilino-propietarios-UF.csv" ^
@@ -66,3 +66,4 @@ if %ERRORLEVEL% neq 0 (
 echo.
 pause
 endlocal
+
