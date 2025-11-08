@@ -84,13 +84,8 @@ AS BEGIN
     DROP TABLE #DatosImportadosCSV;
 END
 GO
---
-DECLARE @Ruta VARCHAR(500) = 'C:\temp\Inquilino-propietarios-datos.csv'
-EXEC ImportarInquilinos_Propietarios @RutaArchivoNovedades = @Ruta
-GO
---
-SELECT * FROM dbo.Persona
-GO
+
+	
 /*IMPOTARCION A LA TABLA ADMINISTRACIÓN*/
 IF OBJECT_ID('dbo.ImportarDatosAdministracion', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ImportarDatosAdministracion;
@@ -129,8 +124,6 @@ BEGIN
 END
 GO
 
-EXEC sp_ImportarDatosAdministracion
-GO
 	
 /*IMPORTACION A LA TABLA CONSORCIO*/
 IF OBJECT_ID('dbo.ImportarDatosConsorcio', 'P') IS NOT NULL
@@ -222,14 +215,9 @@ BEGIN
     DROP TABLE #DatosImportadosTXT;
 END
 GO
---
-DECLARE @Ruta VARCHAR(500) = 'C:\consorcios\UF por consorcio.txt'
-EXEC ImportarDatosConsorcio @RutaArchivoNovedades = @Ruta
---
-GO
+
 
 /*IMPORTACION A LA TABLA UNIDAD_FUNCIONAL*/
-
 IF OBJECT_ID('dbo.Importar_Unidades_Funcionales', 'P') IS NOT NULL
     DROP PROCEDURE dbo.Importar_Unidades_Funcionales;
 GO
@@ -311,6 +299,7 @@ BEGIN
 END;
 GO
 
+	
 /*IMPORTACION A LA TABLA RELACION_UF_PERSONA*/
 IF OBJECT_ID('dbo.ImportarRelacionUFPersonas', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ImportarRelacionUFPersonas;
@@ -406,16 +395,10 @@ BEGIN
 END
 GO
 
--- Ejemplo de ejecución
-DECLARE @RutaPersonas VARCHAR(500) = 'C:\temp\Inquilino-propietarios-datos.csv';
-DECLARE @RutaRelacion VARCHAR(500) = 'C:\consorcios\Inquilino-propietarios-UF.csv';
-
-EXEC ImportarRelacionUFPersonas 
-    @RutaArchivoPersonas = @RutaPersonas,
-    @RutaArchivoRelacion = @RutaRelacion;
-select * from Relacion_UF_Persona
+	
 /*IMPORTACION A LA TABLA EXPENSA*/
 
+	
 /*IMPORTACION A LA TABLA DETALLE_EXPENSA*/
 CREATE OR ALTER PROCEDURE dbo.sp_GenerarDetalleExpensaPorProrrateo
 AS
@@ -474,6 +457,7 @@ BEGIN
 END
 GO
 
+		
 /*IMPORTACION A LA TABLA GASTO*/
 IF OBJECT_ID('dbo.sp_ImportarDatosGasto', 'P') IS NOT NULL
     DROP PROCEDURE dbo.sp_ImportarDatosGasto;
@@ -617,8 +601,6 @@ BEGIN
 END
 GO
 
-DECLARE @Ruta VARCHAR(500) = 'C:\consorcios\Servicios.Servicios.json'
-EXEC dbo.sp_ImportarDatosGasto @RutaArchivoJSON = @Ruta
 	
 /*IMPORTACION A LA TABLA PAGOS*/
 CREATE OR ALTER PROCEDURE ImportarPagosConsorcio
