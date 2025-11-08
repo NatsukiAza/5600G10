@@ -1,7 +1,11 @@
 /*ACA PODREMOS DESARROLLAR LOS SP Y POSTERIORMENTE DIVIDIRLOS EN QUERYS Y/O IOR VOLCANDO LOS QUE YA SIRVEN EN ESTE ARCHIVO*/
 USE COM5600G10
+
 /*IMPORTACION A LA TABLA PERSONA*/
-CREATE OR ALTER PROCEDURE ImportarInquilinos_Propietarios
+IF OBJECT_ID('dbo.ImportarInquilinos_Propietarios', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.ImportarInquilinos_Propietarios;
+GO
+CREATE PROCEDURE ImportarInquilinos_Propietarios
 	@RutaArchivoNovedades VARCHAR(500)
 AS BEGIN
     CREATE TABLE #DatosImportadosCSV(
@@ -13,6 +17,7 @@ AS BEGIN
         CBU_CVU_Pago VARCHAR(50),
         Inquilino_Flag VARCHAR(10)
     );
+
     --
     DECLARE @ComandoSQL NVARCHAR(MAX);
     SET @ComandoSQL = 
@@ -26,6 +31,7 @@ AS BEGIN
     --
     EXEC sp_executesql @ComandoSQL;
     --
+
     WITH FuenteCSV AS (
         SELECT
             1 AS Tipo_Documento,
@@ -34,7 +40,8 @@ AS BEGIN
             TRIM(DatoImportado.Apellido) AS Apellido, -- Limpieza de espacios
             TRIM(DatoImportado.Email_Personal) AS Correo_Electronico, -- Limpieza de espacios
             TRY_CAST((TRIM(DatoImportado.Telefono)) AS INT) AS Telefono,
-            ROW_NUMBER() OVER (PARTITION BY DatoImportado.Documento ORDER BY DatoImportado.Documento) AS RN
+            TRIM(DatoImportado.CBU_CVU_Pago) AS CBU_CVU,
+            ROW_NUMBER() OVER (PARTITION BY DatoImportado.Documento ORDER BY DatoImportado.Documento) AS RN -- Para importar unidades_funcionales
         FROM 
             #DatosImportadosCSV AS DatoImportado
         WHERE
@@ -43,6 +50,7 @@ AS BEGIN
             AND NULLIF(TRIM(DatoImportado.Apellido), '') IS NOT NULL
             AND NULLIF(TRIM(DatoImportado.Email_Personal), '') IS NOT NULL
             AND NULLIF(TRIM(DatoImportado.Telefono), '') IS NOT NULL
+            AND NULLIF(TRIM(DatoImportado.CBU_CVU_Pago), '') IS NOT NULL
     )
     MERGE dbo.Persona AS Transformado
     USING (
@@ -52,7 +60,8 @@ AS BEGIN
             Nombre, 
             Apellido, 
             Correo_Electronico, 
-            Telefono
+            Telefono,
+            CBU_CVU
         FROM 
             FuenteCSV
         WHERE 
@@ -67,25 +76,25 @@ AS BEGIN
             Transformado.nombre = Fuente.Nombre,
             Transformado.apellido = Fuente.Apellido,
             Transformado.correo_electronico = Fuente.Correo_Electronico,
-            Transformado.Telefono = Fuente.Telefono
+            Transformado.Telefono = Fuente.Telefono,
+            Transformado.CBU_CVU = Fuente.CBU_CVU
     --
     WHEN NOT MATCHED BY TARGET THEN
-        INSERT (tipo_documento, numero_documento, nombre, apellido, correo_electronico, Telefono)
+        INSERT (tipo_documento, numero_documento, nombre, apellido, correo_electronico, Telefono, CBU_CVU)
         VALUES (
             Fuente.Tipo_Documento, -- Se inserta la constante 1
             Fuente.Numero_Documento,
             Fuente.Nombre,
             Fuente.Apellido,
             Fuente.Correo_Electronico,
-            Fuente.Telefono
+            Fuente.Telefono,
+            Fuente.CBU_CVU
         );
     --
     IF OBJECT_ID('tempdb..#DatosImportadosCSV') IS NOT NULL
     DROP TABLE #DatosImportadosCSV;
 END
 GO
-
-	
 /*IMPOTARCION A LA TABLA ADMINISTRACIÓN*/
 IF OBJECT_ID('dbo.ImportarDatosAdministracion', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ImportarDatosAdministracion;
@@ -397,6 +406,44 @@ GO
 
 	
 /*IMPORTACION A LA TABLA EXPENSA*/
+IF OBJECT_ID('dbo.FN_ObtenerNthDiaHabil', 'FN') IS NOT NULL
+    DROP FUNCTION dbo.FN_ObtenerNthDiaHabil;
+GO
+
+CREATE FUNCTION dbo.FN_ObtenerNthDiaHabil (
+    @Anio INT, 
+    @Mes INT, 
+    @N INT 
+)
+RETURNS DATE
+AS
+BEGIN
+    DECLARE @Dia INT = 1;
+    DECLARE @DiasHabilesEncontrados INT = 0;
+    DECLARE @Fecha DATE;
+
+    WHILE @Dia <= 31 AND @DiasHabilesEncontrados < @N
+    BEGIN
+        SET @Fecha = TRY_CAST(CONCAT(@Anio, '-', @Mes, '-', @Dia) AS DATE);
+        IF @Fecha IS NULL OR MONTH(@Fecha) <> @Mes
+            BREAK;
+
+        IF DATENAME(WEEKDAY, @Fecha) NOT IN ('Saturday', 'Sunday', 'Sábado', 'Domingo')
+        BEGIN
+            SET @DiasHabilesEncontrados = @DiasHabilesEncontrados + 1;
+        END
+
+        IF @DiasHabilesEncontrados = @N
+            RETURN @Fecha;
+
+        SET @Dia = @Dia + 1;
+    END
+    RETURN NULL;
+END
+GO
+IF OBJECT_ID('dbo.sp_ImportarDatosExpensal', 'FN') IS NOT NULL
+    DROP FUNCTION dbo.sp_ImportarDatosExpensa;
+GO
 CREATE OR ALTER PROCEDURE dbo.sp_ImportarDatosExpensa
     @RutaArchivoJSON VARCHAR(500)
 AS
@@ -479,7 +526,7 @@ BEGIN
             DATEADD(DAY, 20, Fecha_Generada_Base) AS Fecha_Venc2,
             Expensas_Ord_Calculadas,
             Expensas_Extraord_Calculadas,
-            'PAGADA' AS Estado
+            'CERRADA' AS Estado
         FROM FechasCalculadas
         WHERE Fecha_Generada_Base IS NOT NULL
     ) AS Fuente
@@ -783,27 +830,22 @@ BEGIN
             T.Estado = 'PENDIENTE'
             
     WHEN NOT MATCHED THEN
-        INSERT (ID_Pago, ID_Detalle, Fecha_Pago, Cuenta_Origen, DatoImportado, Estado, Detalle, Tipo_Pago)
-        VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, 'PENDIENTE', NULL, 'ORDINARIO');
+        INSERT (ID_Pago, ID_Detalle, Fecha_Pago, Cuenta_Origen, DatoImportado, Estado, Tipo_Pago)
+        VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, 'PENDIENTE', 'ORDINARIO');
 END;
 GO
-
 DECLARE @RutaPersonas VARCHAR(500) = '$(RutaPersonas)';
 DECLARE @RutaConsorcios VARCHAR(500) = '$(RutaConsorcios)';
 DECLARE @RutaRelacion VARCHAR(500) = '$(RutaRelacion)';
 DECLARE @RutaJSON VARCHAR(500) = '$(RutaJSON)';
 DECLARE @RutaPagos VARCHAR(500) = '$(RutaPagos)';
-
 -- 1. Importar Administración
 EXEC sp_ImportarDatosAdministracion;
-
 -- 2. Importar Personas
 EXEC ImportarInquilinos_Propietarios @RutaArchivoNovedades = @RutaPersonas;
-
 -- 3. Importar Consorcios y UF
 EXEC ImportarDatosConsorcio @RutaArchivoNovedades = @RutaConsorcios;
 EXEC Importar_Unidades_Funcionales @RutaArchivo = @RutaConsorcios;
-
 -- 4. Importar Relaciones
 EXEC ImportarRelacionUFPersonas 
     @RutaArchivoPersonas = @RutaPersonas,
