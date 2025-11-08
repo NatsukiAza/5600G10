@@ -15,7 +15,7 @@ set AuthType=
 :AuthLoop
 echo Seleccione el metodo de autenticacion:
 echo [W] - Autenticacion de Windows (Recomendado)
-echo [S] - Autenticacion de SQL Server (Usuario/Contraseña)
+echo [S] - Autenticacion de SQL Server (Usuario/Contrasena)
 set /p AuthType=Opcion (W/S): 
 
 if /I "!AuthType!"=="W" (
@@ -56,7 +56,7 @@ sqlcmd -S "!ServerName!" -d COM5600G10 !SqlAuthParam! -i "03_StoreProcedures_a_d
 
 if %ERRORLEVEL% neq 0 (
     echo.
-    echo ERROR: Falló la ejecución del script SQL.
+    echo ERROR: Fallo la ejecucion del script SQL.
     echo Revise la ruta del archivo o la conexion al servidor.
 ) else (
     echo.
@@ -66,5 +66,6 @@ if %ERRORLEVEL% neq 0 (
 echo.
 pause
 endlocal
+
 
 
