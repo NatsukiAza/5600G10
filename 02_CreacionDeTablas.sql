@@ -1,4 +1,4 @@
-USE COM025600;
+USE COM5600G10;
 
 CREATE TABLE Administracion(
 	 ID_Administracion INT PRIMARY KEY,
