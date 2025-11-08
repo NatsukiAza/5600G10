@@ -1,0 +1,12 @@
+----------INSTRUCCION PARA EL USO DEL .BAT Y LA CARGA DE DATOS AUTOMATICA---------
+
+PASO 1:DESCARGUE EL .BAT Y EL ARCHIVO "03_StoreProcedures_a_desarrollar.sql", trate de dejarlo a los dos en la misma direccion dentro de su equipo o dentro de la misma carpeta.
+PASO 2:Asegurese de descargar y ejecutar los .sql con los subindices 001 y 002 antes de ejecutar el .bat .
+PASO 3:Ejecute el .bat ya sea por doble click o directo de su CMD.
+PASO 4:Al ejecutarlo le pedira su Server Name,dato que puede reconocer al abril el DBMS de SQL Server en la ventana emergente "Connect to Server"->"Server Name",copielo y peguelo.
+PASO 5:Elija el metodo de autentificacion W(para usar el que viene por default en SQL Server osea el Windows Authentication) o S(para usar Autenticacion de SQL Server).
+PASO 6:Busque la carpeta donde tiene guardado los archivos necesarios para la cargua de datos.
+PASO 7:verifique que las direcciones generadas son correctas.
+PASO 8:ejecutelo y verifique con consultas SELECT el resultado de la carga.
+
+ACLARACION IMPORTANTE SOBRE EL PASO 5:En caso de elejir la opcion S asegurese de conocer su Nombre de Usuario y Su contraseña de SQL Server
