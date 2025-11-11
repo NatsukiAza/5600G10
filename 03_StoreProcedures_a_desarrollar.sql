@@ -748,7 +748,6 @@ BEGIN
 END
 GO
 
-	
 /*IMPORTACION A LA TABLA PAGOS*/
 CREATE OR ALTER PROCEDURE ImportarPagosConsorcio
     @RutaArchivo VARCHAR(500)
@@ -782,7 +781,11 @@ BEGIN
             ID_Pago_CSV,
             TRY_CONVERT(DATE, Fecha_Pago, 103) AS Fecha_Pago, 
             TRIM(CBU_CVU_Pago) AS CBU_CVU_Pago,
-            TRY_CONVERT(DECIMAL(12,2), REPLACE(REPLACE(Valor, '$', ''), '.', '')) / 100 AS Valor
+            TRY_CONVERT(DECIMAL(12,2), REPLACE(REPLACE(Valor, '$', ''), '.', '')) / 100 AS Valor,
+            CASE 
+                WHEN ABS(CHECKSUM(NEWID())) % 100 < 30 THEN 'CONFIRMADO'
+                ELSE 'PENDIENTE'
+            END AS Estado
         FROM 
             #PagosCSV
         WHERE 
@@ -796,7 +799,7 @@ BEGIN
             P.Fecha_Pago,
             P.CBU_CVU_Pago,
             P.Valor,
-            
+            P.Estado,
             ROW_NUMBER() OVER (
                 PARTITION BY P.ID_Pago_CSV 
                 ORDER BY D.ID_Detalle DESC 
@@ -815,7 +818,8 @@ BEGIN
             ID_Detalle,
             Fecha_Pago,
             CBU_CVU_Pago,
-            Valor
+            Valor,
+            Estado
         FROM PagosRankeados
         WHERE FilaUnica = 1
     ) AS S
@@ -827,11 +831,11 @@ BEGIN
             T.Fecha_Pago = S.Fecha_Pago,
             T.Cuenta_Origen = S.CBU_CVU_Pago,
             T.DatoImportado = S.Valor,
-            T.Estado = 'PENDIENTE'
+            T.Estado = S.Estado  -- ← Ahora usa el estado aleatorio
             
     WHEN NOT MATCHED THEN
         INSERT (ID_Pago, ID_Detalle, Fecha_Pago, Cuenta_Origen, DatoImportado, Estado, Tipo_Pago)
-        VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, 'PENDIENTE', 'ORDINARIO');
+        VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, S.Estado, 'ORDINARIO');
 END;
 GO
 DECLARE @RutaPersonas VARCHAR(500) = '$(RutaPersonas)';
