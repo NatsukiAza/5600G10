@@ -831,7 +831,7 @@ BEGIN
             T.Fecha_Pago = S.Fecha_Pago,
             T.Cuenta_Origen = S.CBU_CVU_Pago,
             T.DatoImportado = S.Valor,
-            T.Estado = S.Estado  -- ← Ahora usa el estado aleatorio
+            T.Estado = S.Estado 
             
     WHEN NOT MATCHED THEN
         INSERT (ID_Pago, ID_Detalle, Fecha_Pago, Cuenta_Origen, DatoImportado, Estado, Tipo_Pago)
