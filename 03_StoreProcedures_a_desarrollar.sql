@@ -34,7 +34,7 @@ AS BEGIN
 
     WITH FuenteCSV AS (
         SELECT
-            1 AS Tipo_Documento,
+            'DNI' AS Tipo_Documento,
             TRY_CAST((TRIM(DatoImportado.Documento)) AS INT) AS Numero_Documento,
             TRIM(DatoImportado.Nombre) AS Nombre, -- Limpieza de espacios
             TRIM(DatoImportado.Apellido) AS Apellido, -- Limpieza de espacios
@@ -68,21 +68,21 @@ AS BEGIN
             RN = 1
     ) AS Fuente
     ON (
-        Transformado.numero_documento = Fuente.Numero_Documento AND Transformado.tipo_documento = Fuente.Tipo_Documento
+        Transformado.Numero_documento = Fuente.Numero_Documento AND Transformado.Tipo_documento = Fuente.Tipo_Documento
     )
     --
     WHEN MATCHED THEN
         UPDATE SET
-            Transformado.nombre = Fuente.Nombre,
-            Transformado.apellido = Fuente.Apellido,
-            Transformado.correo_electronico = Fuente.Correo_Electronico,
+            Transformado.Nombre = Fuente.Nombre,
+            Transformado.Apellido = Fuente.Apellido,
+            Transformado.Correo_Electronico = Fuente.Correo_Electronico,
             Transformado.Telefono = Fuente.Telefono,
             Transformado.CBU_CVU = Fuente.CBU_CVU
     --
     WHEN NOT MATCHED BY TARGET THEN
-        INSERT (tipo_documento, numero_documento, nombre, apellido, correo_electronico, Telefono, CBU_CVU)
+        INSERT (Tipo_documento, Numero_documento, Nombre, Apellido, Correo_Electronico, Telefono, CBU_CVU)
         VALUES (
-            Fuente.Tipo_Documento, -- Se inserta la constante 1
+            Fuente.Tipo_Documento,
             Fuente.Numero_Documento,
             Fuente.Nombre,
             Fuente.Apellido,
@@ -100,7 +100,7 @@ IF OBJECT_ID('dbo.ImportarDatosAdministracion', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ImportarDatosAdministracion;
 GO
 
-CREATE OR ALTER PROCEDURE sp_ImportarDatosAdministracion
+CREATE OR ALTER PROCEDURE ImportarDatosAdministracion
 AS 
 BEGIN
    SET NOCOUNT ON
@@ -273,7 +273,7 @@ BEGIN
             CASE WHEN U.Cochera = 'SI' THEN 'SI' ELSE 'NO' END AS Tiene_Cochera,
             CASE WHEN U.Bauleras = 'SI' THEN 'SI' ELSE 'NO' END AS Tiene_Bahulera
         FROM #DatosImportadosTXT AS U
-        INNER JOIN Consorcio AS C
+        INNER JOIN dbo.Consorcio AS C
             ON C.Nombre = TRIM(U.Nombre_Consorcio)
         WHERE
             NULLIF(TRIM(U.Nombre_Consorcio), '') IS NOT NULL
@@ -283,7 +283,7 @@ BEGIN
             AND NULLIF(U.Coeficiente, '') IS NOT NULL
     )
 
-    INSERT INTO Unidad_Funcional (
+    INSERT INTO dbo.Unidad_Funcional (
         ID_Consorcio,
         nroUnidadFuncional,
         Piso,
@@ -369,8 +369,7 @@ BEGIN
         SELECT
             ROW_NUMBER() OVER (ORDER BY P.CBU_CVU) AS ID_Relacion,
             UF.ID_UF,
-            1 AS Tipo_Documento,                 -- constante
-            TRY_CAST(P.Documento AS INT) AS Numero_documento,
+			PE.ID_Persona,
             P.CBU_CVU AS CBU_CVU,
             CASE 
                 WHEN TRIM(P.Flag_Inquilino) = '0' THEN 'PROPIETARIO'
@@ -379,20 +378,22 @@ BEGIN
             CAST(GETDATE() AS DATE) AS Fecha_Inicio,
             CAST(DATEADD(DAY, 30, GETDATE()) AS DATE) AS Fecha_Fin
         FROM #DatosRelacionCSV AS R
-        INNER JOIN Unidad_Funcional AS UF
+        INNER JOIN dbo.Unidad_Funcional AS UF
             ON UF.NroUnidadFuncional = R.NroUnidadFuncional
         INNER JOIN #DatosPersonasCSV AS P
             ON P.CBU_CVU = R.CBU_CVU
+		INNER JOIN dbo.Persona AS PE
+			ON PE.CBU_CVU = P.CBU_CVU
         WHERE
             NULLIF(R.CBU_CVU,'') IS NOT NULL
             AND NULLIF(P.CBU_CVU,'') IS NOT NULL
             AND NULLIF(P.Flag_Inquilino,'') IS NOT NULL
     )
 
-    INSERT INTO Relacion_UF_Persona
-        (ID_Relacion,ID_UF, Tipo_Documento, Num_Documento, Fecha_Inicio, Fecha_Fin, Rol, CBU_CVU_Pago)
+    INSERT INTO dbo.Relacion_UF_Persona
+        (ID_Relacion,ID_UF, ID_Persona, Fecha_Inicio, Fecha_Fin, Rol, CBU_CVU_Pago)
     SELECT
-        ID_Relacion, ID_UF, Tipo_Documento, Numero_documento, Fecha_Inicio, Fecha_Fin, Rol, CBU_CVU
+        ID_Relacion, ID_UF, ID_Persona, Fecha_Inicio, Fecha_Fin, Rol, CBU_CVU
     FROM FuenteRelacion;
 
     -- Limpieza
@@ -441,10 +442,10 @@ BEGIN
     RETURN NULL;
 END
 GO
-IF OBJECT_ID('dbo.sp_ImportarDatosExpensal', 'FN') IS NOT NULL
-    DROP FUNCTION dbo.sp_ImportarDatosExpensa;
+IF OBJECT_ID('dbo.ImportarDatosExpensal', 'FN') IS NOT NULL
+    DROP FUNCTION dbo.ImportarDatosExpensa;
 GO
-CREATE OR ALTER PROCEDURE dbo.sp_ImportarDatosExpensa
+CREATE OR ALTER PROCEDURE dbo.ImportarDatosExpensa
     @RutaArchivoJSON VARCHAR(500)
 AS
 BEGIN
@@ -547,7 +548,7 @@ END
 GO
 	
 /*IMPORTACION A LA TABLA DETALLE_EXPENSA*/
-CREATE OR ALTER PROCEDURE dbo.sp_GenerarDetalleExpensaPorProrrateo
+CREATE OR ALTER PROCEDURE dbo.GenerarDetalleExpensaPorProrrateo
 AS
 BEGIN
     DECLARE @MaxID_Detalle INT;
@@ -560,7 +561,7 @@ BEGIN
             Expensas_Ord,
             Expensas_Extraord
         FROM    
-            Expensa
+            dbo.Expensa
     ),
     DetallesExpensasInsertar AS (
         SELECT
@@ -571,15 +572,15 @@ BEGIN
             U_Fun.Porcentaje_Prorrateo
         FROM 
             ExpensasNoLiquidadas AS ENL
-            INNER JOIN Unidad_Funcional AS U_Fun 
+            INNER JOIN dbo.Unidad_Funcional AS U_Fun 
                 ON ENL.ID_Consorcio = U_Fun.ID_Consorcio
         WHERE NOT EXISTS (
-            SELECT 1 FROM Detalle_Expensa AS D_Exp
+            SELECT 1 FROM dbo.Detalle_Expensa AS D_Exp
             WHERE D_Exp.ID_Expensa = ENL.ID_Expensa AND D_Exp.ID_UF = U_Fun.ID_UF
         )
     )
    --
-    INSERT INTO Detalle_Expensa(
+    INSERT INTO dbo.Detalle_Expensa(
         ID_Detalle,
         ID_Expensa,
         ID_UF,
@@ -606,11 +607,11 @@ GO
 
 		
 /*IMPORTACION A LA TABLA GASTO*/
-IF OBJECT_ID('dbo.sp_ImportarDatosGasto', 'P') IS NOT NULL
-    DROP PROCEDURE dbo.sp_ImportarDatosGasto;
+IF OBJECT_ID('dbo.ImportarDatosGasto', 'P') IS NOT NULL
+    DROP PROCEDURE dbo.ImportarDatosGasto;
 GO
 
-CREATE OR ALTER PROCEDURE dbo.sp_ImportarDatosGasto
+CREATE OR ALTER PROCEDURE dbo.ImportarDatosGasto
     @RutaArchivoJSON VARCHAR(500)
 AS
 BEGIN
@@ -805,13 +806,13 @@ BEGIN
                 ORDER BY D.ID_Detalle DESC 
             ) AS FilaUnica
         FROM PagosLimpios P
-        INNER JOIN Relacion_UF_Persona R 
+        INNER JOIN dbo.Relacion_UF_Persona R 
             ON R.CBU_CVU_Pago = P.CBU_CVU_Pago
-        INNER JOIN Detalle_Expensa D    
+        INNER JOIN dbo.Detalle_Expensa D    
             ON D.ID_UF = R.ID_UF
     )
     --
-    MERGE INTO Pago AS T
+    MERGE INTO dbo.Pago AS T
     USING (
         SELECT
             ID_Pago,
@@ -838,13 +839,15 @@ BEGIN
         VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, S.Estado, 'ORDINARIO');
 END;
 GO
-DECLARE @RutaPersonas VARCHAR(500) = '$(RutaPersonas)';
-DECLARE @RutaConsorcios VARCHAR(500) = '$(RutaConsorcios)';
-DECLARE @RutaRelacion VARCHAR(500) = '$(RutaRelacion)';
-DECLARE @RutaJSON VARCHAR(500) = '$(RutaJSON)';
-DECLARE @RutaPagos VARCHAR(500) = '$(RutaPagos)';
+DECLARE @RutaPersonas VARCHAR(500) = '${RutaPersonas}';
+DECLARE @RutaConsorcios VARCHAR(500) = '${RutaPersonas}';
+DECLARE @RutaRelacion VARCHAR(500) = '${RutaPersonas}';
+DECLARE @RutaJSON VARCHAR(500) = '${RutaPersonas}';
+DECLARE @RutaPagos VARCHAR(500) = '${RutaPersonas}';
+
+
 -- 1. Importar Administración
-EXEC sp_ImportarDatosAdministracion;
+EXEC ImportarDatosAdministracion;
 -- 2. Importar Personas
 EXEC ImportarInquilinos_Propietarios @RutaArchivoNovedades = @RutaPersonas;
 -- 3. Importar Consorcios y UF
@@ -854,13 +857,12 @@ EXEC Importar_Unidades_Funcionales @RutaArchivo = @RutaConsorcios;
 EXEC ImportarRelacionUFPersonas 
     @RutaArchivoPersonas = @RutaPersonas,
     @RutaArchivoRelacion = @RutaRelacion;
-
 -- 5. Importar Expensas y Gastos
-EXEC dbo.sp_ImportarDatosExpensa @RutaArchivoJSON = @RutaJSON;
-EXEC dbo.sp_ImportarDatosGasto @RutaArchivoJSON = @RutaJSON;
+EXEC dbo.ImportarDatosExpensa @RutaArchivoJSON = @RutaJSON;
+EXEC dbo.ImportarDatosGasto @RutaArchivoJSON = @RutaJSON;
 
 -- 6. Generar detalles de expensas
-EXEC sp_GenerarDetalleExpensaPorProrrateo;
+EXEC GenerarDetalleExpensaPorProrrateo;
 
 -- 7. Importar Pagos
 EXEC ImportarPagosConsorcio @RutaArchivo = @RutaPagos;

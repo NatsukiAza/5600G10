@@ -28,27 +28,26 @@ CREATE TABLE Unidad_Funcional(
 )
 
 CREATE TABLE Persona(
-	Tipo_Documento TINYINT,
+	ID_Persona INT PRIMARY KEY IDENTITY(1,1),
+	Tipo_Documento VARCHAR(100),
 	Numero_documento INT,
 	Nombre VARCHAR(100) NOT NULL,
 	Apellido VARCHAR(100) NOT NULL,
-	Correo_Electronico VARCHAR(100) NOT NULL,
-	CBU_CVU CHAR(22) NULL,
-	Telefono INT NOT NULL CHECK(Telefono between 1100000000 and 1200000000),
-	PRIMARY KEY(Tipo_Documento,Numero_documento)
+	Correo_Electronico VARCHAR(100),
+	CBU_CVU CHAR(22),
+	Telefono INT CHECK(Telefono between 1100000000 and 1200000000),
 )
 
 CREATE TABLE Relacion_UF_Persona(
 	ID_Relacion INT Primary key,
 	ID_UF INT,
-	Tipo_Documento TINYINT,
-	Num_Documento INT,
+	ID_Persona INT,
 	Fecha_Inicio DATE NOT NULL,
 	Fecha_Fin DATE NOT NULL, CHECK(Fecha_Fin > Fecha_Inicio),
 	Rol VARCHAR(11) NOT NULL CHECK (Rol IN ('PROPIETARIO','INQUILINO')),
 	CBU_CVU_Pago CHAR(22) NOT NULL,
-	CONSTRAINT FK_Relacion_Persona FOREIGN KEY (Tipo_Documento, Num_Documento)
-    REFERENCES Persona(Tipo_Documento, Numero_documento) ON DELETE CASCADE,
+	CONSTRAINT FK_Relacion_Persona FOREIGN KEY (ID_Persona)
+    REFERENCES Persona(ID_Persona) ON DELETE CASCADE,
 	CONSTRAINT FK_Relacion_UF FOREIGN KEY (ID_UF)
     REFERENCES Unidad_Funcional(ID_UF) ON DELETE CASCADE
 )
@@ -117,4 +116,3 @@ CREATE TABLE Pago (
         REFERENCES Detalle_Expensa(ID_Detalle)
         ON DELETE CASCADE
 )
-

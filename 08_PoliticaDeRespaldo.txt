@@ -1,0 +1,6 @@
+Se utilizaria un respaldo FULL cada 4 semanas, un respaldo DIFFERENTIAL diario y un transaction log cada 1 hora.
+
+El RPO seria de 1 hora por lo que la maxima perdida seria 1 hora de transacciones realizadas.
+Es importante que un sistema con pagos como el nuestro mantenga un log para no perder ninguna transaccion que se haya podido realizar.
+Ademas tener un diferencial diario hace que no se ejecuten copias full diariamente optimizando el espacio.
+
