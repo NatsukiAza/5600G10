@@ -95,6 +95,8 @@ AS BEGIN
     DROP TABLE #DatosImportadosCSV;
 END
 GO
+
+	
 /*IMPOTARCION A LA TABLA ADMINISTRACIÓN*/
 IF OBJECT_ID('dbo.ImportarDatosAdministracion', 'P') IS NOT NULL
     DROP PROCEDURE dbo.ImportarDatosAdministracion;
@@ -839,13 +841,12 @@ BEGIN
         VALUES (S.ID_Pago, S.ID_Detalle, S.Fecha_Pago, S.CBU_CVU_Pago, S.Valor, S.Estado, 'ORDINARIO');
 END;
 GO
-DECLARE @RutaPersonas VARCHAR(500) = '${RutaPersonas}';
-DECLARE @RutaConsorcios VARCHAR(500) = '${RutaPersonas}';
-DECLARE @RutaRelacion VARCHAR(500) = '${RutaPersonas}';
-DECLARE @RutaJSON VARCHAR(500) = '${RutaPersonas}';
-DECLARE @RutaPagos VARCHAR(500) = '${RutaPersonas}';
-
-
+	
+DECLARE @RutaPersonas VARCHAR(500) = '$(RutaPersonas)';
+DECLARE @RutaConsorcios VARCHAR(500) = '$(RutaConsorcios)';
+DECLARE @RutaRelacion VARCHAR(500) = '$(RutaRelacion)';
+DECLARE @RutaJSON VARCHAR(500) = '$(RutaJSON)';
+DECLARE @RutaPagos VARCHAR(500) = '$(RutaPagos)';
 -- 1. Importar Administración
 EXEC ImportarDatosAdministracion;
 -- 2. Importar Personas
@@ -857,12 +858,13 @@ EXEC Importar_Unidades_Funcionales @RutaArchivo = @RutaConsorcios;
 EXEC ImportarRelacionUFPersonas 
     @RutaArchivoPersonas = @RutaPersonas,
     @RutaArchivoRelacion = @RutaRelacion;
+
 -- 5. Importar Expensas y Gastos
 EXEC dbo.ImportarDatosExpensa @RutaArchivoJSON = @RutaJSON;
 EXEC dbo.ImportarDatosGasto @RutaArchivoJSON = @RutaJSON;
 
 -- 6. Generar detalles de expensas
-EXEC GenerarDetalleExpensaPorProrrateo;
+EXEC dbo.GenerarDetalleExpensaPorProrrateo;
 
 -- 7. Importar Pagos
 EXEC ImportarPagosConsorcio @RutaArchivo = @RutaPagos;
